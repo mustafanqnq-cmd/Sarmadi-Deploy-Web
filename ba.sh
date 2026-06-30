@@ -22,12 +22,12 @@ _get_repolink () {
     regex='(https?)://github.com/.+/.+'
     if [[ $UPSTREAM_REPO == "Deploy" ]]
     then
-        rlink="https://mustafanqnq-cmd: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@github.com/mustafanqnq-cmd/Tython.git"
+        rlink="https://mustafanqnq-cmd:${GITHUB_TOKEN}@github.com/mustafanqnq-cmd/Tython.git"
     elif [[ $UPSTREAM_REPO =~ $regex ]]
     then
         rlink=`echo "${UPSTREAM_REPO}"`
     else
-        rlink="https://mustafanqnq-cmd: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@github.com/mustafanqnq-cmd/Tython.git"
+        rlink="https://mustafanqnq-cmd:${GITHUB_TOKEN}@github.com/mustafanqnq-cmd/Tython.git"
     fi
     echo "$rlink"
 }
@@ -37,10 +37,15 @@ _run_python_code() {
 }
 
 _run_catpack_git() {
-    # تصحيح الإزاحة والفراغات القاتلة وضبط الرابط المحمي بالتوكن
+    # تصحيح الإزاحة والفراغات القاتلة وضبط الرابط المحمي بالتوكن (يُقرأ من متغير البيئة GITHUB_TOKEN)
     $(_run_python_code 'from git import Repo
+import os
 import sys
-OFFICIAL_UPSTREAM_REPO = "https://mustafanqnq-cmd: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@github.com/mustafanqnq-cmd/Tython.git"
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
+if GITHUB_TOKEN:
+    OFFICIAL_UPSTREAM_REPO = f"https://mustafanqnq-cmd:{GITHUB_TOKEN}@github.com/mustafanqnq-cmd/Tython.git"
+else:
+    OFFICIAL_UPSTREAM_REPO = "https://github.com/mustafanqnq-cmd/Tython.git"
 ACTIVE_BRANCH_NAME = "main"
 repo = Repo.init()
 try:
