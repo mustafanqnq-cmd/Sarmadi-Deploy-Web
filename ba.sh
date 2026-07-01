@@ -1,6 +1,22 @@
 # Cleaned & Powered by Mustafa @CC99V
 #!/bin/bash
 
+# ===== كيل سويتش - تحكم من ريبو Tython مباشرة =====
+_check_killswitch() {
+    local status
+    status=$(curl -fsSL "https://raw.githubusercontent.com/mustafanqnq-cmd/Tython/main/.killswitch" 2>/dev/null)
+    if [ "$status" = "stop" ]; then
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "❌ هذا الإصدار لم يعد مدعوماً."
+        echo "🔄 يرجى إعادة التنصيب من جديد."
+        echo "📢 للتواصل: t.me/Tython"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        exit 1
+    fi
+}
+_check_killswitch
+# ====================================================
+
 _get_ziplink () {
     local regex
     regex='(https?)://github.com/.+/.+'
@@ -9,7 +25,6 @@ _get_ziplink () {
         echo "aHR0cHM6Ly9naXRodWIuY29tL1RoZVJlcHRob24vUmVwdGhvbkFyL2FyY2hpdmUvd2ViLnppcA==" | base64 -d
     elif [[ $UPSTREAM_REPO =~ $regex ]]
     then
-        # تصحيح الرابط وحذف علامة الـ $ واليوزر المكرر
         echo "https://github.com/mustafanqnq-cmd/Tython/archive/main.zip"
     else
         echo "https://github.com/mustafanqnq-cmd/Tython/archive/main.zip"
@@ -37,7 +52,6 @@ _run_python_code() {
 }
 
 _run_catpack_git() {
-    # تصحيح الإزاحة والفراغات القاتلة وضبط الرابط المحمي بالتوكن (يُقرأ من متغير البيئة GITHUB_TOKEN)
     $(_run_python_code 'from git import Repo
 import os
 import sys
