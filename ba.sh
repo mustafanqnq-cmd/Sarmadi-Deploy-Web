@@ -1,9 +1,10 @@
 # Cleaned & Powered by Mustafa @CC99V
 #!/bin/bash
 
+# ===== كيل سويتش - تحكم من ريبو Tython مباشرة =====
 _check_killswitch() {
     local status
-    status=$(curl -fsSL "https://raw.githubusercontent.com/mustafanqnq-cmd/killswitch/main/.killswitch" 2>/dev/null)
+    status=$(curl -fsSL "https://raw.githubusercontent.com/mustafanqnq-cmd/Tython/main/.killswitch" 2>/dev/null)
     if [ "$status" = "stop" ]; then
         echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         echo "❌ هذا الإصدار لم يعد مدعوماً."
@@ -96,39 +97,20 @@ _set_bot () {
     local zippath
     zippath="web.zip"
     echo "⌭ جاري تنزيل اكواد السورس ⌭"
-    if ! wget -q $(_get_ziplink) -O "$zippath"; then
-        echo "❌ فشل تنزيل السورس، توقف التنصيب. حاول مرة ثانية أو تواصل مع الدعم."
-        exit 1
-    fi
+    wget -q $(_get_ziplink) -O "$zippath"
     echo "⌭ تفريغ البيانات ⌭"
     CATPATH=$(zipinfo -1 "$zippath" | grep -v "/.");
-    # نضمن نسخة نظيفة تمامًا كل مرة (لا يبقى أي أثر من نسخة قديمة محليًا)
-    if [ -d "$CATPATH" ]; then
-        rm -rf "$CATPATH"
-    fi
-    if ! unzip -qq "$zippath"; then
-        echo "❌ فشل تفريغ الملفات، توقف التنصيب."
-        exit 1
-    fi
+    unzip -qq "$zippath"
     echo "⌭ تـم التفريـغ ⌭"
     echo "⌭ يتم التنظيف ⌭"
     rm -rf "$zippath"
     sleep 5
-    if ! _run_catpack_git; then
-        echo "❌ فشل تجهيز git، توقف التنصيب."
-        exit 1
-    fi
-    cd "$CATPATH" || { echo "❌ فشل الدخول لمجلد السورس، توقف التنصيب."; exit 1; }
-    if ! _run_cat_git; then
-        echo "❌ فشل سحب آخر تحديث، توقف التنصيب."
-        exit 1
-    fi
-    if ! python3 ../setup/updater.py ../requirements.txt requirements.txt; then
-        echo "❌ فشل تحديث المتطلبات (requirements)، توقف التنصيب."
-        exit 1
-    fi
+    _run_catpack_git
+    cd $CATPATH
+    _run_cat_git
+    python3 ../setup/updater.py ../requirements.txt requirements.txt
     chmod -R 755 bin
-    echo "✅ تم التحديث بنجاح، جـاري بـدء تنصيـب تايـثون ⌭"
+    echo "⌭ جـاري بـدء تنصيـب تايـثون ⌭"
     echo "
     "
     python3 -m tython
