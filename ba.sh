@@ -1,7 +1,6 @@
 # Cleaned & Powered by Mustafa @CC99V
 #!/bin/bash
 
-# ===== كيل سويتش - ريبو منفصل عام مخصص فقط لهذا الغرض (ما إله علاقة بريبو الكود الحقيقي) =====
 _check_killswitch() {
     local status
     status=$(curl -fsSL "https://raw.githubusercontent.com/mustafanqnq-cmd/killswitch/main/.killswitch" 2>/dev/null)
