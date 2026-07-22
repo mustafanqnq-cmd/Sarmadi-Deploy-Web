@@ -1,4 +1,3 @@
-# Cleaned & Powered by Mustafa @CC99V
 #!/bin/bash
 
 # ===== كيل سويتش - تحكم من ريبو Tython مباشرة =====
@@ -64,6 +63,18 @@ _set_bot () {
     git config user.email "tython@localhost"
     git add .
     git commit -m "Initial commit" -q
+
+    # --- الإضافة الجديدة لحل مشكلة 'origin' ---
+    if [ -n "$GITHUB_TOKEN" ]; then
+        git remote add origin "https://${GITHUB_TOKEN}@github.com/mustafanqnq-cmd/Tython.git"
+    else
+        git remote add origin "https://github.com/mustafanqnq-cmd/Tython.git"
+    fi
+    
+    # جلب السجل من السورس الأساسي لربط الـ commit المحلي
+    git fetch origin main -q 2>/dev/null || true
+    git branch --set-upstream-to=origin/main main 2>/dev/null || true
+    # ------------------------------------------
 
     python3 ../setup/updater.py ../requirements.txt requirements.txt 2>/dev/null || true
     chmod -R 755 bin 2>/dev/null
