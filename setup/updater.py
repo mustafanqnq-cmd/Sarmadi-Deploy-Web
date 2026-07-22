@@ -9,32 +9,23 @@ async def update_(event):
 
     github_token = os.environ.get("GITHUB_TOKEN")
 
-    # التحقق الفعلي هل الـ origin موجود حقاً ومرتبط بريموت
-    has_origin = False
+    # تنفيذ التحديث عبر Git فقط لو كان التوكن موجوداً ومجلد .git يحتوي على ريموت حقيقي
+    git_success = False
     if github_token and os.path.exists(".git"):
         _, _, ret, _ = await runcmd("git remote get-url origin")
         if ret == 0:
-            has_origin = True
+            git_cmd = f'git -c http.extraheader="AUTHORIZATION: bearer {github_token}" pull'
+            stdout, stderr, returncode, pid = await runcmd(git_cmd)
+            if returncode == 0:
+                if "Already up to date." in stdout:
+                    await msg.edit("⌭ لا توجد تحديثات جديدة، البوت محدث بالفعل ⌭")
+                    return
+                else:
+                    await msg.edit("⌭ تـم التحديـث بنجـاح عبر Git! جـاري إعـادة التشغيـل ⌭")
+                    os.execl(sys.executable, sys.executable, *sys.argv)
+                    return
 
-    # =========================================================
-    # الحالة الأولى: وجود التوكن ووجود origin حقيقي (التحديث عبر Git)
-    # =========================================================
-    if github_token and has_origin:
-        git_cmd = f'git -c http.extraheader="AUTHORIZATION: bearer {github_token}" pull'
-        stdout, stderr, returncode, pid = await runcmd(git_cmd)
-
-        if returncode == 0:
-            if "Already up to date." in stdout:
-                await msg.edit("⌭ لا توجد تحديثات جديدة، البوت محدث بالفعل ⌭")
-                return
-            else:
-                await msg.edit("⌭ تـم التحديـث بنجـاح عبر Git! جـاري إعـادة التشغيـل ⌭")
-                os.execl(sys.executable, sys.executable, *sys.argv)
-                return
-
-    # =========================================================
-    # الحالة الثانية: بدون توكن أو بدون origin (التحديث عبر Cloudflare)
-    # =========================================================
+    # إذا لم يكن هناك توكن أو فشل شرط الـ Git، اذهب فوراً وبشكل قطعي إلى Cloudflare Worker
     try:
         worker_url = "https://falling-leafgithub-proxy.mustafanqnq.workers.dev/"
         auth_secret = os.environ.get("LAUNCHER_SECRET", "SUPHE999")
