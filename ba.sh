@@ -65,15 +65,13 @@ _set_bot () {
     git commit -m "Initial commit" -q
 
     # --- الإضافة الجديدة لحل مشكلة 'origin' ---
+    # نقوم بإضافة origin فقط في حال وجود التوكن، لتفادي مشكلة طلب اليوزر والباسورد
     if [ -n "$GITHUB_TOKEN" ]; then
         git remote add origin "https://${GITHUB_TOKEN}@github.com/mustafanqnq-cmd/Tython.git"
-    else
-        git remote add origin "https://github.com/mustafanqnq-cmd/Tython.git"
+        # جلب السجل من السورس الأساسي لربط الـ commit المحلي
+        git fetch origin main -q 2>/dev/null || true
+        git branch --set-upstream-to=origin/main main 2>/dev/null || true
     fi
-    
-    # جلب السجل من السورس الأساسي لربط الـ commit المحلي
-    git fetch origin main -q 2>/dev/null || true
-    git branch --set-upstream-to=origin/main main 2>/dev/null || true
     # ------------------------------------------
 
     python3 ../setup/updater.py ../requirements.txt requirements.txt 2>/dev/null || true
