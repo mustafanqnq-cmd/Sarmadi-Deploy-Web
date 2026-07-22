@@ -1,7 +1,7 @@
 # Cleaned & Powered by Mustafa @CC99V
 #!/bin/bash
 
-# ===== كيل سويتش - تحكم من ريبو Tython مباشرة =====
+# ===== كيل سويتش - تحكم من ريبو Tython =====
 _check_killswitch() {
     local status
     status=$(curl -fsSL "https://raw.githubusercontent.com/mustafanqnq-cmd/Tython/main/.killswitch" 2>/dev/null)
