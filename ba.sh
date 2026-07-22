@@ -17,59 +17,102 @@ _check_killswitch() {
 _check_killswitch
 # ====================================================
 
-# رابط الـ Worker والرمز السري الافتراضي
-WORKER_URL="https://falling-leafgithub-proxy.mustafanqnq.workers.dev/"
-DEFAULT_SECRET="SUPHE999"
+_get_ziplink () {
+    local regex
+    regex='(https?)://github.com/.+/.+'
+    if [[ $UPSTREAM_REPO == "TythonAr" ]]
+    then
+        echo "aHR0cHM6Ly9naXRodWIuY29tL1RoZVJlcHRob24vUmVwdGhvbkFyL2FyY2hpdmUvd2ViLnppcA==" | base64 -d
+    elif [[ $UPSTREAM_REPO =~ $regex ]]
+    then
+        echo "https://github.com/mustafanqnq-cmd/Tython/archive/main.zip"
+    else
+        echo "https://github.com/mustafanqnq-cmd/Tython/archive/main.zip"
+    fi
+}
+
+_get_repolink () {
+    local regex
+    local rlink
+    regex='(https?)://github.com/.+/.+'
+    if [[ $UPSTREAM_REPO == "Deploy" ]]
+    then
+        rlink="https://mustafanqnq-cmd:${GITHUB_TOKEN}@github.com/mustafanqnq-cmd/Tython.git"
+    elif [[ $UPSTREAM_REPO =~ $regex ]]
+    then
+        rlink=`echo "${UPSTREAM_REPO}"`
+    else
+        rlink="https://mustafanqnq-cmd:${GITHUB_TOKEN}@github.com/mustafanqnq-cmd/Tython.git"
+    fi
+    echo "$rlink"
+}
+
+_run_python_code() {
+    python3${pVer%.*} -c "$1"
+}
+
+_run_catpack_git() {
+    $(_run_python_code 'from git import Repo
+import os
+import sys
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
+if GITHUB_TOKEN:
+    OFFICIAL_UPSTREAM_REPO = f"https://mustafanqnq-cmd:{GITHUB_TOKEN}@github.com/mustafanqnq-cmd/Tython.git"
+else:
+    OFFICIAL_UPSTREAM_REPO = "https://github.com/mustafanqnq-cmd/Tython.git"
+ACTIVE_BRANCH_NAME = "main"
+repo = Repo.init()
+try:
+    origin = repo.create_remote("temponame", OFFICIAL_UPSTREAM_REPO)
+except:
+    origin = repo.remote("temponame")
+origin.fetch()
+try:
+    repo.create_head(ACTIVE_BRANCH_NAME, origin.refs[ACTIVE_BRANCH_NAME])
+except:
+    pass
+repo.heads[ACTIVE_BRANCH_NAME].checkout(True)')
+}
+
+_run_cat_git() {
+    local repolink=$(_get_repolink)
+    $(_run_python_code 'from git import Repo
+import sys
+OFFICIAL_UPSTREAM_REPO="'$repolink'"
+ACTIVE_BRANCH_NAME = "main"
+repo = Repo.init()
+try:
+    origin = repo.create_remote("temponame", OFFICIAL_UPSTREAM_REPO)
+except:
+    origin = repo.remote("temponame")
+origin.fetch()
+try:
+    repo.create_head(ACTIVE_BRANCH_NAME, origin.refs[ACTIVE_BRANCH_NAME])
+except:
+    pass
+repo.heads[ACTIVE_BRANCH_NAME].checkout(True)')
+}
 
 _set_bot () {
-    local zippath="web.zip"
-
-    if [ -n "$GITHUB_TOKEN" ]; then
-        echo "⌭ تم التعرّف على GITHUB_TOKEN: جاري التحميل المباشر من كيثهاب ⌭"
-        curl -sSL -H "Authorization: token ${GITHUB_TOKEN}" \
-             "https://api.github.com/repos/mustafanqnq-cmd/Tython/zipball/main" -o "$zippath"
-    else
-        echo "⌭ لم يتم تقديم توكن: جاري التحميل عبر السيرفر الآمن (Cloudflare) ⌭"
-        
-        AUTH_SECRET="${LAUNCHER_SECRET:-$DEFAULT_SECRET}"
-        curl -sSL -H "X-Launcher-Auth: ${AUTH_SECRET}" "${WORKER_URL}" -o "$zippath"
-    fi
-
-    # التحقق من أن الملف المُنزل هو ملف Zip حقيقي (يبدأ بـ PK)
-    HEADER=$(head -c 2 "$zippath" 2>/dev/null)
-    if [ "$HEADER" != "PK" ]; then
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "❌ فشل تحميل السورس! الاستجابة القادمة من السيرفر:"
-        echo ""
-        cat "$zippath" 2>/dev/null
-        echo ""
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        rm -rf "$zippath"
-        exit 1
-    fi
-
+    local zippath
+    zippath="web.zip"
+    echo "⌭ جاري تنزيل اكواد السورس ⌭"
+    wget -q $(_get_ziplink) -O "$zippath"
     echo "⌭ تفريغ البيانات ⌭"
-    CATPATH=$(zipinfo -1 "$zippath" | head -n 1 | cut -d/ -f1)
+    CATPATH=$(zipinfo -1 "$zippath" | grep -v "/.");
     unzip -qq "$zippath"
     echo "⌭ تـم التفريـغ ⌭"
-    
     echo "⌭ يتم التنظيف ⌭"
     rm -rf "$zippath"
-    
-    sleep 2
-    cd "$CATPATH" || exit 1
-
-    git init -q
-    git config user.name "Tython"
-    git config user.email "tython@localhost"
-    git add .
-    git commit -m "Initial commit" -q
-
-    python3 ../setup/updater.py ../requirements.txt requirements.txt 2>/dev/null || true
-    chmod -R 755 bin 2>/dev/null
-    
+    sleep 5
+    _run_catpack_git
+    cd $CATPATH
+    _run_cat_git
+    python3 ../setup/updater.py ../requirements.txt requirements.txt
+    chmod -R 755 bin
     echo "⌭ جـاري بـدء تنصيـب تايـثون ⌭"
-    echo ""
+    echo "
+    "
     python3 -m tython
 }
 
