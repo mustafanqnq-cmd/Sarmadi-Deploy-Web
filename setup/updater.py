@@ -18,3 +18,4 @@ async def update_(event):
         # إعادة تشغيل البوت لتطبيق التغييرات
         import os
         os.execl(sys.executable, sys.executable, *sys.argv)
+ 
