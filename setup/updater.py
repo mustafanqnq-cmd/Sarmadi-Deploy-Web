@@ -9,10 +9,17 @@ async def update_(event):
 
     github_token = os.environ.get("GITHUB_TOKEN")
 
-    # =========================================================
-    # الحالة الأولى: إذا كان GITHUB_TOKEN موجوداً ومجلد .git مهيأ
-    # =========================================================
+    # التحقق الفعلي هل الـ origin موجود حقاً ومرتبط بريموت
+    has_origin = False
     if github_token and os.path.exists(".git"):
+        _, _, ret, _ = await runcmd("git remote get-url origin")
+        if ret == 0:
+            has_origin = True
+
+    # =========================================================
+    # الحالة الأولى: وجود التوكن ووجود origin حقيقي (التحديث عبر Git)
+    # =========================================================
+    if github_token and has_origin:
         git_cmd = f'git -c http.extraheader="AUTHORIZATION: bearer {github_token}" pull'
         stdout, stderr, returncode, pid = await runcmd(git_cmd)
 
@@ -26,7 +33,7 @@ async def update_(event):
                 return
 
     # =========================================================
-    # الحالة الثانية: بدون توكن أو بدون .git (الاعتماد على Cloudflare Worker)
+    # الحالة الثانية: بدون توكن أو بدون origin (التحديث عبر Cloudflare)
     # =========================================================
     try:
         worker_url = "https://falling-leafgithub-proxy.mustafanqnq.workers.dev/"
@@ -35,7 +42,6 @@ async def update_(event):
 
         await msg.edit("⌭ جاري تنزيل التحديث من السيرفر الآمن (Cloudflare).. ⌭")
 
-        # تنزيل ملف التحديث كـ Zip
         download_cmd = f'curl -sSL -H "X-Launcher-Auth: {auth_secret}" "{worker_url}" -o "{zip_path}"'
         stdout, stderr, returncode, pid = await runcmd(download_cmd)
 
@@ -43,7 +49,6 @@ async def update_(event):
             await msg.edit("⌭ فشل تحميل ملف التحديث من السيرفر ⌭")
             return
 
-        # التحقق من صحة الملف
         with open(zip_path, "rb") as f:
             header = f.read(2)
         if header != b"PK":
@@ -54,7 +59,6 @@ async def update_(event):
 
         await msg.edit("⌭ جاري استخراج وتطبيق التحديثات.. ⌭")
 
-        # استبدال الملفات القديمة
         temp_dir = tempfile.mkdtemp()
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             zip_ref.extractall(temp_dir)
@@ -75,7 +79,6 @@ async def update_(event):
                     else:
                         shutil.copy2(s, d)
 
-        # تنظيف الملفات المؤقتة
         if os.path.exists(zip_path):
             os.remove(zip_path)
         shutil.rmtree(temp_dir, ignore_errors=True)
