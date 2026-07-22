@@ -9,23 +9,37 @@ async def update_(event):
 
     github_token = os.environ.get("GITHUB_TOKEN")
 
-    # تنفيذ التحديث عبر Git فقط لو كان التوكن موجوداً ومجلد .git يحتوي على ريموت حقيقي
-    git_success = False
+    # =========================================================
+    # الحالة الأولى: إذا كان GITHUB_TOKEN موجوداً ومجلد .git مهيأ
+    # =========================================================
     if github_token and os.path.exists(".git"):
-        _, _, ret, _ = await runcmd("git remote get-url origin")
-        if ret == 0:
-            git_cmd = f'git -c http.extraheader="AUTHORIZATION: bearer {github_token}" pull'
-            stdout, stderr, returncode, pid = await runcmd(git_cmd)
-            if returncode == 0:
-                if "Already up to date." in stdout:
-                    await msg.edit("⌭ لا توجد تحديثات جديدة، البوت محدث بالفعل ⌭")
-                    return
-                else:
-                    await msg.edit("⌭ تـم التحديـث بنجـاح عبر Git! جـاري إعـادة التشغيـل ⌭")
-                    os.execl(sys.executable, sys.executable, *sys.argv)
-                    return
+        # تأكد من وجود origin قبل أي محاولة pull (يحل مشكلة النسخ القديمة
+        # التي تنصبت بدون توكن ولم تحصل على origin أصلاً)
+        _, _, remote_code, _ = await runcmd("git remote get-url origin")
+        if remote_code != 0:
+            await runcmd(
+                f'git remote add origin "https://{github_token}@github.com/mustafanqnq-cmd/Tython.git"'
+            )
+        else:
+            await runcmd(
+                f'git remote set-url origin "https://{github_token}@github.com/mustafanqnq-cmd/Tython.git"'
+            )
 
-    # إذا لم يكن هناك توكن أو فشل شرط الـ Git، اذهب فوراً وبشكل قطعي إلى Cloudflare Worker
+        git_cmd = f'git -c http.extraheader="AUTHORIZATION: bearer {github_token}" pull origin main'
+        stdout, stderr, returncode, pid = await runcmd(git_cmd)
+
+        if returncode == 0:
+            if "Already up to date." in stdout:
+                await msg.edit("⌭ لا توجد تحديثات جديدة، البوت محدث بالفعل ⌭")
+                return
+            else:
+                await msg.edit("⌭ تـم التحديـث بنجـاح عبر Git! جـاري إعـادة التشغيـل ⌭")
+                os.execl(sys.executable, sys.executable, *sys.argv)
+                return
+
+    # =========================================================
+    # الحالة الثانية: بدون توكن أو بدون .git (الاعتماد على Cloudflare Worker)
+    # =========================================================
     try:
         worker_url = "https://falling-leafgithub-proxy.mustafanqnq.workers.dev/"
         auth_secret = os.environ.get("LAUNCHER_SECRET", "SUPHE999")
@@ -33,6 +47,7 @@ async def update_(event):
 
         await msg.edit("⌭ جاري تنزيل التحديث من السيرفر الآمن (Cloudflare).. ⌭")
 
+        # تنزيل ملف التحديث كـ Zip
         download_cmd = f'curl -sSL -H "X-Launcher-Auth: {auth_secret}" "{worker_url}" -o "{zip_path}"'
         stdout, stderr, returncode, pid = await runcmd(download_cmd)
 
@@ -40,6 +55,7 @@ async def update_(event):
             await msg.edit("⌭ فشل تحميل ملف التحديث من السيرفر ⌭")
             return
 
+        # التحقق من صحة الملف
         with open(zip_path, "rb") as f:
             header = f.read(2)
         if header != b"PK":
@@ -50,6 +66,7 @@ async def update_(event):
 
         await msg.edit("⌭ جاري استخراج وتطبيق التحديثات.. ⌭")
 
+        # استبدال الملفات القديمة
         temp_dir = tempfile.mkdtemp()
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             zip_ref.extractall(temp_dir)
@@ -70,6 +87,7 @@ async def update_(event):
                     else:
                         shutil.copy2(s, d)
 
+        # تنظيف الملفات المؤقتة
         if os.path.exists(zip_path):
             os.remove(zip_path)
         shutil.rmtree(temp_dir, ignore_errors=True)
