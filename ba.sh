@@ -1,5 +1,5 @@
 # Cleaned & Powered by Mustafa @CC99V
-#!/bin/bash
+#!/bin
 
 # ===== كيل سويتش - تحكم من ريبو Tython =====
 _check_killswitch() {
