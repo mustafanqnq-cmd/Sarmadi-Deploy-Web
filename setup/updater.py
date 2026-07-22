@@ -10,10 +10,9 @@ async def update_(event):
     github_token = os.environ.get("GITHUB_TOKEN")
 
     # =========================================================
-    # المحاولة الأولى: التحديث عبر Git Pull مع التوكن مباشرة
+    # الحالة الأولى: إذا كان GITHUB_TOKEN موجوداً ومجلد .git مهيأ
     # =========================================================
-    if github_token:
-        # تمرير التوكن في الهيدر لتجاوز مطالبة Git بطلب Username
+    if github_token and os.path.exists(".git"):
         git_cmd = f'git -c http.extraheader="AUTHORIZATION: bearer {github_token}" pull'
         stdout, stderr, returncode, pid = await runcmd(git_cmd)
 
@@ -27,7 +26,7 @@ async def update_(event):
                 return
 
     # =========================================================
-    # المحاولة الثانية: التحديث عبر Cloudflare Worker (تلقائي وسلس)
+    # الحالة الثانية: بدون توكن أو بدون .git (الاعتماد على Cloudflare Worker)
     # =========================================================
     try:
         worker_url = "https://falling-leafgithub-proxy.mustafanqnq.workers.dev/"
@@ -36,7 +35,7 @@ async def update_(event):
 
         await msg.edit("⌭ جاري تنزيل التحديث من السيرفر الآمن (Cloudflare).. ⌭")
 
-        # تنزيل ملف التحديث
+        # تنزيل ملف التحديث كـ Zip
         download_cmd = f'curl -sSL -H "X-Launcher-Auth: {auth_secret}" "{worker_url}" -o "{zip_path}"'
         stdout, stderr, returncode, pid = await runcmd(download_cmd)
 
