@@ -24,9 +24,6 @@ DEFAULT_SECRET="SUPHE999"
 _set_bot () {
     local zippath="web.zip"
 
-    # ============================================================
-    # GITHUB_TOKEN 
-    # ============================================================
     if [ -n "$GITHUB_TOKEN" ]; then
         echo "⌭ تم التعرّف على GITHUB_TOKEN: جاري التحميل المباشر من كيثهاب ⌭"
         curl -sSL -H "Authorization: token ${GITHUB_TOKEN}" \
@@ -34,15 +31,19 @@ _set_bot () {
     else
         echo "⌭ لم يتم تقديم توكن: جاري التحميل عبر السيرفر الآمن (Cloudflare) ⌭"
         
-        # استخدام الرمز المدخل من رايلوي أو استخدام الرمز الافتراضي
         AUTH_SECRET="${LAUNCHER_SECRET:-$DEFAULT_SECRET}"
-        
         curl -sSL -H "X-Launcher-Auth: ${AUTH_SECRET}" "${WORKER_URL}" -o "$zippath"
     fi
 
-    # التأكد من صحة الملف المحمّل
-    if [ ! -s "$zippath" ] || file "$zippath" | grep -q "text"; then
-        echo "❌ فشل تحميل السورس! يرجى التأكد من صحة التوكن أو مفتاح الدخول."
+    # التحقق من أن الملف المُنزل هو ملف Zip حقيقي (يبدأ بـ PK)
+    HEADER=$(head -c 2 "$zippath" 2>/dev/null)
+    if [ "$HEADER" != "PK" ]; then
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "❌ فشل تحميل السورس! الاستجابة القادمة من السيرفر:"
+        echo ""
+        cat "$zippath" 2>/dev/null
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         rm -rf "$zippath"
         exit 1
     fi
@@ -58,7 +59,6 @@ _set_bot () {
     sleep 2
     cd "$CATPATH" || exit 1
 
-    # تهيئة المستودع المحلي
     git init -q
     git config user.name "Tython"
     git config user.email "tython@localhost"
