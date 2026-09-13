@@ -7,6 +7,12 @@ RUN apt-get -qq update && apt-get -qq install -y git wget ffmpeg mediainfo \
 RUN curl -sL https://deb.nodesource.com/setup_22.x | bash -
 RUN apt-get install -y nodejs
 RUN pip install --no-cache-dir -r requirements.txt
+
+# تحديد البورت الافتراضي لـ Hugging Face (رايلوي سيتجاهله ويضع البورت الخاص به)
+ENV PORT=7860
+EXPOSE 7860
+
 ENV PATH=/app:$PATH
-EXPOSE 8080
-CMD ["bash", "ba.sh"]
+
+# تشغيل خادم الويب والسورس معاً
+CMD ["bash", "start.sh"]
