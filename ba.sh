@@ -108,7 +108,7 @@ _set_bot () {
     _run_catpack_git
     cd $CATPATH
     _run_cat_git
-    python3 ../setup/updater.py ../requirements.txt requirements.txt
+    python3 /app/setup/updater.py /app/requirements.txt requirements.txt
     chmod -R 755 bin
     echo "⌭ جـاري بـدء تنصيـب تايـثون ⌭"
     echo "
