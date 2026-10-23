@@ -1,5 +1,5 @@
 services:
-  - type: web
+  - type: worker
     runtime: docker
     name: sarmadi-mustafa
     plan: free
@@ -12,7 +12,7 @@ services:
       - key: API_ID
         value: 18109107
       - key: API_HASH
-        value: e6afc7383da3a10fa16a0a9675c3e037
+        sync: false        # تم جعلها مخفية وآمنة لكيلا تُسرق من الكود العام!
       - key: ENV
         value: ANYTHING
       - key: STRING_SESSION
