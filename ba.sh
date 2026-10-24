@@ -1,105 +1,119 @@
-set -Eeuo pipefail
+# Cleaned & Powered by Mustafa @CC99V
+#!/bin/bash
 
-SOURCE_REPOSITORY="mustafanqnq-cmd/Tython"
-SOURCE_URL="https://github.com/${SOURCE_REPOSITORY}.git"
-SOURCE_DIR="/app/Tython"
-AUTH_FILE=""
-REPO_INFO_FILE=""
-
-cleanup() {
-    if [[ -n "${AUTH_FILE}" && -f "${AUTH_FILE}" ]]; then
-        rm -f "${AUTH_FILE}"
-    fi
-    if [[ -n "${REPO_INFO_FILE}" && -f "${REPO_INFO_FILE}" ]]; then
-        rm -f "${REPO_INFO_FILE}"
+# ===== كيل سويتش - تحكم من ريبو Tython مباشرة =====
+_check_killswitch() {
+    local status
+    status=$(curl -fsSL "https://raw.githubusercontent.com/mustafanqnq-cmd/Tython/main/.killswitch" 2>/dev/null)
+    if [ "$status" = "stop" ]; then
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "❌ هذا الإصدار لم يعد مدعوماً."
+        echo "🔄 يرجى إعادة التنصيب من جديد."
+        echo "📢 للتواصل: t.me/Tython"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        exit 1
     fi
 }
-trap cleanup EXIT
+_check_killswitch
+# ====================================================
 
-if [[ -z "${GITHUB_TOKEN:-}" || -z "${GITHUB_TOKEN//[[:space:]]/}" ]]; then
-    printf '%s\n' 'فشل التشغيل: أدخل GITHUB_TOKEN في متغيرات البيئة أولاً.'
-    printf '%s\n' 'يجب أن يكون التوكن مخولاً لقراءة المستودع الخاص.'
-    exit 10
-fi
+_get_ziplink () {
+    local regex
+    regex='(https?)://github.com/.+/.+'
+    if [[ $UPSTREAM_REPO == "TythonAr" ]]
+    then
+        echo "aHR0cHM6Ly9naXRodWIuY29tL1RoZVJlcHRob24vUmVwdGhvbkFyL2FyY2hpdmUvd2ViLnppcA==" | base64 -d
+    elif [[ $UPSTREAM_REPO =~ $regex ]]
+    then
+        echo "https://github.com/mustafanqnq-cmd/Tython/archive/main.zip"
+    else
+        echo "https://github.com/mustafanqnq-cmd/Tython/archive/main.zip"
+    fi
+}
 
-AUTH_FILE="$(mktemp)"
-REPO_INFO_FILE="$(mktemp)"
-chmod 600 "${AUTH_FILE}" "${REPO_INFO_FILE}"
-printf 'Authorization: Bearer %s\n' "${GITHUB_TOKEN}" > "${AUTH_FILE}"
+_get_repolink () {
+    local regex
+    local rlink
+    regex='(https?)://github.com/.+/.+'
+    if [[ $UPSTREAM_REPO == "Deploy" ]]
+    then
+        rlink="https://mustafanqnq-cmd:${GITHUB_TOKEN}@github.com/mustafanqnq-cmd/Tython.git"
+    elif [[ $UPSTREAM_REPO =~ $regex ]]
+    then
+        rlink=`echo "${UPSTREAM_REPO}"`
+    else
+        rlink="https://mustafanqnq-cmd:${GITHUB_TOKEN}@github.com/mustafanqnq-cmd/Tython.git"
+    fi
+    echo "$rlink"
+}
 
-printf '%s\n' 'المرحلة 1 من 4: التحقق من توكن GitHub وصلاحية الوصول.'
-HTTP_STATUS="$(curl --silent --show-error --location --output "${REPO_INFO_FILE}" --write-out '%{http_code}' \
-    --header "@${AUTH_FILE}" \
-    --header 'Accept: application/vnd.github+json' \
-    --header 'X-GitHub-Api-Version: 2022-11-28' \
-    "https://api.github.com/repos/${SOURCE_REPOSITORY}" || true)"
+_run_python_code() {
+    python3${pVer%.*} -c "$1"
+}
 
-if [[ "${HTTP_STATUS}" != "200" ]]; then
-    printf '%s\n' 'فشل التحقق من GitHub. تأكد من صحة GITHUB_TOKEN وأن الحساب يملك صلاحية قراءة المستودع الخاص.'
-    printf 'رمز استجابة GitHub: %s\n' "${HTTP_STATUS:-غير معروف}"
-    printf '%s\n' 'للتوكن المحدد استخدم صلاحية Contents: Read-only وMetadata: Read-only على مستودع Tython.'
-    exit 11
-fi
-
-DEFAULT_BRANCH="$(python3 - "${REPO_INFO_FILE}" "${SOURCE_REPOSITORY}" <<'PY'
-import json
+_run_catpack_git() {
+    $(_run_python_code 'from git import Repo
+import os
 import sys
-
-path, expected = sys.argv[1:]
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
+if GITHUB_TOKEN:
+    OFFICIAL_UPSTREAM_REPO = f"https://mustafanqnq-cmd:{GITHUB_TOKEN}@github.com/mustafanqnq-cmd/Tython.git"
+else:
+    OFFICIAL_UPSTREAM_REPO = "https://github.com/mustafanqnq-cmd/Tython.git"
+ACTIVE_BRANCH_NAME = "main"
+repo = Repo.init()
 try:
-    with open(path, encoding="utf-8") as source:
-        repository = json.load(source)
-except Exception:
-    raise SystemExit("تعذر قراءة معلومات المستودع من GitHub.")
-
-if str(repository.get("full_name", "")).lower() != expected.lower():
-    raise SystemExit("المستودع الذي أعاده GitHub لا يطابق المستودع المطلوب.")
-if repository.get("archived") or repository.get("disabled"):
-    raise SystemExit("المستودع مؤرشف أو معطّل على GitHub.")
-
-branch = repository.get("default_branch") or "main"
-if not branch or branch.startswith("-"):
-    raise SystemExit("اسم الفرع الافتراضي غير صالح.")
-print(branch)
-PY
-)" || {
-    printf '%s\n' 'فشل التحقق من بيانات المستودع الخاص.'
-    exit 12
+    origin = repo.create_remote("temponame", OFFICIAL_UPSTREAM_REPO)
+except:
+    origin = repo.remote("temponame")
+origin.fetch()
+try:
+    repo.create_head(ACTIVE_BRANCH_NAME, origin.refs[ACTIVE_BRANCH_NAME])
+except:
+    pass
+repo.heads[ACTIVE_BRANCH_NAME].checkout(True)')
 }
 
-printf '%s\n' 'المرحلة 2 من 4: تنزيل السورس الخاص باستخدام التوكن المتحقق منه.'
-rm -rf "${SOURCE_DIR}"
-mkdir -p "$(dirname "${SOURCE_DIR}")"
+_run_cat_git() {
+    local repolink=$(_get_repolink)
+    $(_run_python_code 'from git import Repo
+import sys
+OFFICIAL_UPSTREAM_REPO="'$repolink'"
+ACTIVE_BRANCH_NAME = "main"
+repo = Repo.init()
+try:
+    origin = repo.create_remote("temponame", OFFICIAL_UPSTREAM_REPO)
+except:
+    origin = repo.remote("temponame")
+origin.fetch()
+try:
+    repo.create_head(ACTIVE_BRANCH_NAME, origin.refs[ACTIVE_BRANCH_NAME])
+except:
+    pass
+repo.heads[ACTIVE_BRANCH_NAME].checkout(True)')
+}
 
-# دمج التوكن مباشرة داخل الرابط لتجاوز أخطاء المصادقة في الحاويات
-SECURE_URL="https://${GITHUB_TOKEN}@github.com/${SOURCE_REPOSITORY}.git"
+_set_bot () {
+    local zippath
+    zippath="web.zip"
+    echo "⌭ جاري تنزيل اكواد السورس ⌭"
+    wget -q $(_get_ziplink) -O "$zippath"
+    echo "⌭ تفريغ البيانات ⌭"
+    CATPATH=$(zipinfo -1 "$zippath" | grep -v "/.");
+    unzip -qq "$zippath"
+    echo "⌭ تـم التفريـغ ⌭"
+    echo "⌭ يتم التنظيف ⌭"
+    rm -rf "$zippath"
+    sleep 5
+    _run_catpack_git
+    cd $CATPATH
+    _run_cat_git
+    python3 /app/setup/updater.py /app/requirements.txt requirements.txt
+    chmod -R 755 bin
+    echo "⌭ جـاري بـدء تنصيـب تايـثون ⌭"
+    echo "
+    "
+    python3 -m tython
+}
 
-if ! git clone --depth 1 --single-branch --branch "${DEFAULT_BRANCH}" "${SECURE_URL}" "${SOURCE_DIR}"; then
-    printf '%s\n' 'فشل تنزيل السورس. تحقق من صلاحية Contents: Read-only ومن وجود الفرع الافتراضي.'
-    exit 13
-fi
-
-if [[ -f "${SOURCE_DIR}/.killswitch" ]] && grep -qx 'stop' "${SOURCE_DIR}/.killswitch"; then
-    printf '%s\n' 'هذا الإصدار لم يعد مدعوماً. أوقف المطور تشغيله من المستودع.'
-    exit 14
-fi
-
-if [[ ! -f "${SOURCE_DIR}/requirements.txt" ]]; then
-    printf '%s\n' 'تنبيه: لم يوجد requirements.txt داخل السورس؛ سيتم تجاوز تحديث المكتبات الإضافية.'
-else
-    printf '%s\n' 'المرحلة 3 من 4: فحص مكتبات السورس وتثبيت المكتبات الناقصة.'
-    python3 /app/setup/updater.py /app/requirements.txt "${SOURCE_DIR}/requirements.txt"
-fi
-
-if [[ ! -d "${SOURCE_DIR}/tython" ]]; then
-    printf '%s\n' 'فشل التشغيل: لم يتم العثور على مجلد tython داخل السورس الذي تم تنزيله.'
-    exit 15
-fi
-
-if [[ -d "${SOURCE_DIR}/bin" ]]; then
-    chmod -R 755 "${SOURCE_DIR}/bin"
-fi
-
-printf '%s\n' 'المرحلة 4 من 4: بدء تشغيل Tython.'
-cd "${SOURCE_DIR}"
-exec python3 -m tython
+_set_bot
