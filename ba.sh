@@ -17,7 +17,7 @@ cleanup() {
 trap cleanup EXIT
 
 if [[ -z "${GITHUB_TOKEN:-}" || -z "${GITHUB_TOKEN//[[:space:]]/}" ]]; then
-    printf '%s\n' 'فشل التشغيل: أدخل GITHUB_TOKEN في متغيرات Render أولاً.'
+    printf '%s\n' 'فشل التشغيل: أدخل GITHUB_TOKEN في متغيرات البيئة أولاً.'
     printf '%s\n' 'يجب أن يكون التوكن مخولاً لقراءة المستودع الخاص.'
     exit 10
 fi
@@ -70,14 +70,14 @@ PY
 printf '%s\n' 'المرحلة 2 من 4: تنزيل السورس الخاص باستخدام التوكن المتحقق منه.'
 rm -rf "${SOURCE_DIR}"
 mkdir -p "$(dirname "${SOURCE_DIR}")"
-export GIT_CONFIG_COUNT=1
-export GIT_CONFIG_KEY_0='http.extraheader'
-export GIT_CONFIG_VALUE_0="AUTHORIZATION: bearer ${GITHUB_TOKEN}"
-if ! git clone --depth 1 --single-branch --branch "${DEFAULT_BRANCH}" "${SOURCE_URL}" "${SOURCE_DIR}"; then
+
+# دمج التوكن مباشرة داخل الرابط لتجاوز أخطاء المصادقة في الحاويات
+SECURE_URL="https://${GITHUB_TOKEN}@github.com/${SOURCE_REPOSITORY}.git"
+
+if ! git clone --depth 1 --single-branch --branch "${DEFAULT_BRANCH}" "${SECURE_URL}" "${SOURCE_DIR}"; then
     printf '%s\n' 'فشل تنزيل السورس. تحقق من صلاحية Contents: Read-only ومن وجود الفرع الافتراضي.'
     exit 13
 fi
-unset GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0
 
 if [[ -f "${SOURCE_DIR}/.killswitch" ]] && grep -qx 'stop' "${SOURCE_DIR}/.killswitch"; then
     printf '%s\n' 'هذا الإصدار لم يعد مدعوماً. أوقف المطور تشغيله من المستودع.'
