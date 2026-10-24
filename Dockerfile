@@ -3,17 +3,19 @@ FROM python:3.10-slim
 # تعيين مجلد العمل الأساسي داخل الحاوية
 WORKDIR /app
 
-# تحديث النظام وتثبيت الحزم الأساسية المطلوبة (مثل ffmpeg الموجودة في ملف apt.txt و git)
+# تحديث النظام وتثبيت حزم النظام الأساسية (مثل ffmpeg ومكتبات التطوير ودعم القواعد)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     curl \
     ffmpeg \
+    libpq-dev \
+    gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# نسخ ملف المتطلبات أولاً لضمان سرعة بناء الكاش (Cache)
+# نسخ ملف المتطلبات أولاً لضمان سرعة الكاش
 COPY requirements.txt .
 
-# ترقية pip وتثبيت جميع مكتبات البايثون المطلوبة
+# ترقية pip وتثبيت جميع مكتبات بايثون بدون مشاكل
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
