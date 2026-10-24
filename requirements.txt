@@ -56,7 +56,6 @@ Pillow
 prettytable
 psutil
 psycopg2-binary
-psycopg2
 pyfiglet
 PyGithub
 pygments
@@ -121,7 +120,6 @@ Pillow
 prettytable
 psutil
 psycopg2-binary
-psycopg2
 pyfiglet
 PyGithub
 pygments
@@ -164,4 +162,3 @@ youtube-search-python
 youtube_dl
 youtube-search
 yt-dlp
-gradio
