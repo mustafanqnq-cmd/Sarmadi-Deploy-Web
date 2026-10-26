@@ -1,0 +1,21 @@
+{
+  "apps": [
+    {
+      "name": "tython-bot",
+      "deploy": "git",
+      "type": "python",
+      "minFlavor": "nano",
+      "env": {
+        "API_HASH": "64342b78a8d90e3f691d7a3a09112e7b",
+        "API_ID": "7219208",
+        "DATABASE_PUBLIC_URL": "",
+        "DATABASE_URL": "",
+        "ENV": ".",
+        "GITHUB_TOKEN": "",
+        "STRING_SESSION": "",
+        "TG_BOT_TOKEN": "",
+        "TZ": "Asia/Baghdad"
+      }
+    }
+  ]
+}
