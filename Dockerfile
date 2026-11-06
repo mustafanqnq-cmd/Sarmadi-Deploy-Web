@@ -5,9 +5,6 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     TZ=Asia/Baghdad
 
-ARG UPSTREAM_REPO=https://github.com/mustafanqnq-cmd/Tython.git
-ARG UPSTREAM_BRANCH=main
-
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -24,13 +21,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libmagickwand-dev \
     && rm -rf /var/lib/apt/lists/*
 
-RUN git clone --depth 1 --branch "$UPSTREAM_BRANCH" "$UPSTREAM_REPO" /opt/Tython
-
 COPY requirements.txt ./requirements.txt
 
 RUN python -m pip install --no-cache-dir --upgrade pip setuptools wheel \
-    && python -m pip install --no-cache-dir -r requirements.txt \
-    && python -m pip install --no-cache-dir -r /opt/Tython/requirements.txt
+    && python -m pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
