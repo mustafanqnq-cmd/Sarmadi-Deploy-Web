@@ -164,3 +164,4 @@ youtube-search
 yt-dlp
 yt-dlp[default]
 deno
+gallery-dl
