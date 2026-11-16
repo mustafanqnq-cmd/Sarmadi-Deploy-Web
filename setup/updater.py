@@ -6,6 +6,8 @@ from git.exc import InvalidGitRepositoryError, GitCommandError
 
 UPSTREAM_REPO = "https://github.com/Sarmadi-Deploy-Web/Sarmadi-Deploy-Web"
 REQUIREMENTS_FILE = "requirements.txt"
+# إذا كان لديك ملف متطلبات خاص باللانجر في مسار آخر، يمكنك تعريفه هنا لتحديثه أيضاً:
+# LAUNCHER_REQ_FILE = "launcher/requirements.txt"
 
 async def run_cmd(command: str) -> tuple[int, str, str]:
     """
@@ -21,24 +23,34 @@ async def run_cmd(command: str) -> tuple[int, str, str]:
 
 async def upgrade_pip_requirements() -> tuple[bool, str]:
     """
-    فحص وتحديث مكاتب Python المعرفة في requirements.txt.
-    المكتبات المثبتة والمحدثة مسبقاً يتم تجاوزها فوراً بدون إعادة تنزيل.
+    1. أولاً: فحص وتحديث مكاتب Python (للسورس وأي إضافات مرتبطة).
+    المكتبات المثبتة مسبقاً وعلى أحدث إصدار يتم تجاوزها فوراً.
     """
-    if not os.path.exists(REQUIREMENTS_FILE):
-        return False, "ملف requirements.txt غير موجود في المسار الرئيسي."
-
     pip_executable = sys.executable
-    cmd = f'"{pip_executable}" -m pip install --upgrade -r {REQUIREMENTS_FILE}'
-    code, stdout, stderr = await run_cmd(cmd)
+    logs = []
+
+    # فحص ملف متطلبات السورس الرئيسي
+    if os.path.exists(REQUIREMENTS_FILE):
+        cmd = f'"{pip_executable}" -m pip install --upgrade -r {REQUIREMENTS_FILE}'
+        code, stdout, stderr = await run_cmd(cmd)
+        if code != 0:
+            return False, f"خطأ في مكاتب السورس:\n{stderr}"
+        logs.append("تم فحص وتحديث مكاتب السورس بنجاح.")
     
-    if code == 0:
-        return True, "تم فحص وتحديث جميع المكتبات بنجاح."
-    else:
-        return False, f"حدث خطأ أثناء فحص المكتبات:\n{stderr}"
+    # (اختياري) إذا كان لديك ملف متطلبات خاص باللانجر والإضافات الخارجية:
+    # launcher_req = "launcher/requirements.txt"
+    # if os.path.exists(launcher_req):
+    #     cmd_l = f'"{pip_executable}" -m pip install --upgrade -r {launcher_req}'
+    #     code_l, out_l, err_l = await run_cmd(cmd_l)
+    #     if code_l != 0:
+    #         return False, f"خطأ في مكاتب اللانجر والإضافات:\n{err_l}"
+    #     logs.append("تم فحص وتحديث مكاتب اللانجر بنجاح.")
+
+    return True, "\n".join(logs) if logs else "لا توجد ملفات متطلبات لتحديثها."
 
 async def pull_git_updates() -> tuple[bool, str]:
     """
-    سحب أحدث الملفات والمجلدات وتحديث الشفرة المصدرية من Git.
+    2. ثانياً: سحب وتحديث ملفات السورس والإضافات والمجلدات من Git.
     """
     try:
         repo = Repo(os.getcwd())
@@ -56,7 +68,7 @@ async def pull_git_updates() -> tuple[bool, str]:
         
         repo.git.reset("--hard", f"origin/{active_branch}")
         repo.git.pull("origin", active_branch)
-        return True, f"تم سحب وتحديث جميع مجلدات السورس بنجاح من الفرع {active_branch}."
+        return True, f"تم سحب وتحديث السورس والإضافات بنجاح من الفرع {active_branch}."
     except GitCommandError as e:
         return False, f"خطأ في تنفيذ أمر Git:\n{str(e)}"
     except Exception as e:
@@ -64,35 +76,35 @@ async def pull_git_updates() -> tuple[bool, str]:
 
 async def update_bot_full(event=None):
     """
-    الدالة المخصصة لأمر (تحديث البوت) أو زر التحديث الشامل:
-    - تحدث السورس والمجلدات.
-    - تفحص وتحدث المكتبات الجديدة/الناقصة فقط وتترك المحدث على وضعه.
-    - تعيد تشغيل البوت تلقائياً.
-    (ملاحظة: أمر .تحديث الخاص بالبلوغينات يظل يعمل بشكل منفصل كما هو).
+    أمر (تحديث البوت) الشامل:
+    - يبدأ أولاً بفحص وتحديث المكاتب (للسورس والإضافات).
+    - ثانياً يقوم بسحب وتحديث ملفات السورس والمجلدات والإضافات.
+    - أخيراً يعيد تشغيل البوت تلقائياً.
+    (أمر .تحديث الخاص بالبلوغينات يظل يعمل بشكل منفصل تماماً).
     """
     status_message = None
     if event:
-        status_message = await event.respond("⏳ جاري بدء التحديث الشامل للبوت (السورس + المكتبات)...")
+        status_message = await event.respond("⏳ جاري بدء التحديث الشامل: فحص المكاتب والإضافات أولاً...")
 
-    # 1. تحديث السورس والمجلدات
-    git_success, git_log = await pull_git_updates()
-    if not git_success:
-        if status_message:
-            await status_message.edit(f"❌ فشل تحديث السورس:\n{git_log}")
-        return
-
-    if status_message:
-        await status_message.edit("🔄 تم تحديث المجلدات والسورس. جاري فحص مكتبات بايثون...")
-
-    # 2. فحص وتحديث المكتبات (تجاوز المثبت وتحديث الجديد فقط)
+    # الخطوة 1: فحص وتحديث المكاتب أولاً
     pip_success, pip_log = await upgrade_pip_requirements()
     if not pip_success:
         if status_message:
-            await status_message.edit(f"⚠️ تم تحديث السورس ولكن حدث خطأ في المكتبات:\n{pip_log}")
+            await status_message.edit(f"⚠️ فشل تحديث المكاتب:\n{pip_log}")
         return
 
     if status_message:
-        await status_message.edit("✅ اكتمل التحديث الشامل بنجاح! جاري إعادة تشغيل البوت لتطبيق التغيرات...")
+        await status_message.edit("🔄 تم فحص المكاتب بنجاح. جاري الآن سحب وتحديث السورس والإضافات...")
 
-    # 3. إعادة التشغيل المباشر للبوت
+    # الخطوة 2: سحب وتحديث السورس والإضافات ثانياً
+    git_success, git_log = await pull_git_updates()
+    if not git_success:
+        if status_message:
+            await status_message.edit(f"❌ تم تحديث المكاتب ولكن فشل سحب السورس:\n{git_log}")
+        return
+
+    if status_message:
+        await status_message.edit("✅ اكتمل التحديث الشامل (المكاتب + السورس + الإضافات) بنجاح! جاري إعادة التشغيل...")
+
+    # الخطوة 3: إعادة التشغيل المباشر للبوت
     os.execl(sys.executable, sys.executable, "-m", "app")
