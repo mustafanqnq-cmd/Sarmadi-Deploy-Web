@@ -1,71 +1,98 @@
-#!/usr/bin/env python3
-"""
-setup/updater.py  --  سكربت مستقل (مو أمر بوت)
-
-يشتغل قبل تشغيل البوت. ما يستورد telethon ولا tython.
-الاستخدام:
-    python3 setup/updater.py <requirements_قديم> <requirements_جديد>
-    python3 setup/updater.py <requirements>
-الأول: ينصّب بس المكتبات الموجودة بالجديد وناقصة من القديم.
-الثاني: ينصّب كل شي بالملف.
-مهم: يطلع دائماً بكود 0 حتى لو صار خطأ، حتى ما يوقف التنصيب.
-"""
-import os
-import re
-import subprocess
 import sys
+import os
+import asyncio
+from git import Repo
+from git.exc import InvalidGitRepositoryError, GitCommandError
 
+UPSTREAM_REPO = "https://github.com/Sarmadi-Deploy-Web/Sarmadi-Deploy-Web"
+REQUIREMENTS_FILE = "requirements.txt"
 
-def pkg_name(line: str) -> str:
-    line = line.split("#", 1)[0].strip()
-    if not line or line.startswith("-"):
-        return ""
-    return re.split(r"[<>=!~\[;\s@]", line, maxsplit=1)[0].lower().replace("_", "-")
+async def run_cmd(command: str) -> tuple[int, str, str]:
+    """
+    تنفيذ الأوامر الطرفية بشكل غير متزامن لتفادي تجميد البوت.
+    """
+    process = await asyncio.create_subprocess_shell(
+        command,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE
+    )
+    stdout, stderr = await process.communicate()
+    return process.returncode, stdout.decode().strip(), stderr.decode().strip()
 
+async def upgrade_pip_requirements() -> tuple[bool, str]:
+    """
+    فحص وتحديث مكاتب Python المعرفة في requirements.txt.
+    المكتبات المثبتة والمحدثة مسبقاً يتم تجاوزها فوراً بدون إعادة تنزيل.
+    """
+    if not os.path.exists(REQUIREMENTS_FILE):
+        return False, "ملف requirements.txt غير موجود في المسار الرئيسي."
 
-def read_reqs(path: str) -> dict:
-    out = {}
-    if not os.path.isfile(path):
-        return out
-    with open(path, encoding="utf-8", errors="ignore") as f:
-        for raw in f:
-            name = pkg_name(raw)
-            if name:
-                out[name] = raw.split("#", 1)[0].strip()
-    return out
-
-
-def pip_install(specs: list) -> None:
-    for spec in specs:
-        cmd = [sys.executable, "-m", "pip", "install", "--no-cache-dir", spec]
-        try:
-            r = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
-            print(("OK   " if r.returncode == 0 else "FAIL ") + spec)
-        except Exception as e:  # noqa: BLE001
-            print(f"FAIL {spec} ({e})")
-
-
-def main() -> None:
-    args = sys.argv[1:]
-    if not args:
-        print("updater: لا توجد ملفات requirements .. تخطي")
-        return
-    if len(args) == 1:
-        new = read_reqs(args[0])
-        todo = list(new.values())
+    pip_executable = sys.executable
+    cmd = f'"{pip_executable}" -m pip install --upgrade -r {REQUIREMENTS_FILE}'
+    code, stdout, stderr = await run_cmd(cmd)
+    
+    if code == 0:
+        return True, "تم فحص وتحديث جميع المكتبات بنجاح."
     else:
-        old, new = read_reqs(args[0]), read_reqs(args[1])
-        todo = [spec for name, spec in new.items() if name not in old]
-    if not todo:
-        print("updater: لا توجد مكتبات جديدة .. تخطي")
-        return
-    print(f"updater: تنصيب {len(todo)} مكتبة ناقصة")
-    pip_install(todo)
+        return False, f"حدث خطأ أثناء فحص المكتبات:\n{stderr}"
 
-
-if __name__ == "__main__":
+async def pull_git_updates() -> tuple[bool, str]:
+    """
+    سحب أحدث الملفات والمجلدات وتحديث الشفرة المصدرية من Git.
+    """
     try:
-        main()
-    except Exception as e:  # noqa: BLE001
-        print(f"updater: خطأ تم تجاهله: {e}")
-    sys.exit(0)
+        repo = Repo(os.getcwd())
+    except InvalidGitRepositoryError:
+        repo = Repo.init(os.getcwd())
+
+    try:
+        if "origin" in repo.remotes:
+            origin = repo.remote("origin")
+        else:
+            origin = repo.create_remote("origin", UPSTREAM_REPO)
+            
+        origin.fetch()
+        active_branch = repo.active_branch.name if not repo.head.is_detached else "main"
+        
+        repo.git.reset("--hard", f"origin/{active_branch}")
+        repo.git.pull("origin", active_branch)
+        return True, f"تم سحب وتحديث جميع مجلدات السورس بنجاح من الفرع {active_branch}."
+    except GitCommandError as e:
+        return False, f"خطأ في تنفيذ أمر Git:\n{str(e)}"
+    except Exception as e:
+        return False, f"خطأ غير متوقع أثناء سحب التحديثات:\n{str(e)}"
+
+async def update_bot_full(event=None):
+    """
+    الدالة المخصصة لأمر (تحديث البوت) أو زر التحديث الشامل:
+    - تحدث السورس والمجلدات.
+    - تفحص وتحدث المكتبات الجديدة/الناقصة فقط وتترك المحدث على وضعه.
+    - تعيد تشغيل البوت تلقائياً.
+    (ملاحظة: أمر .تحديث الخاص بالبلوغينات يظل يعمل بشكل منفصل كما هو).
+    """
+    status_message = None
+    if event:
+        status_message = await event.respond("⏳ جاري بدء التحديث الشامل للبوت (السورس + المكتبات)...")
+
+    # 1. تحديث السورس والمجلدات
+    git_success, git_log = await pull_git_updates()
+    if not git_success:
+        if status_message:
+            await status_message.edit(f"❌ فشل تحديث السورس:\n{git_log}")
+        return
+
+    if status_message:
+        await status_message.edit("🔄 تم تحديث المجلدات والسورس. جاري فحص مكتبات بايثون...")
+
+    # 2. فحص وتحديث المكتبات (تجاوز المثبت وتحديث الجديد فقط)
+    pip_success, pip_log = await upgrade_pip_requirements()
+    if not pip_success:
+        if status_message:
+            await status_message.edit(f"⚠️ تم تحديث السورس ولكن حدث خطأ في المكتبات:\n{pip_log}")
+        return
+
+    if status_message:
+        await status_message.edit("✅ اكتمل التحديث الشامل بنجاح! جاري إعادة تشغيل البوت لتطبيق التغيرات...")
+
+    # 3. إعادة التشغيل المباشر للبوت
+    os.execl(sys.executable, sys.executable, "-m", "app")
