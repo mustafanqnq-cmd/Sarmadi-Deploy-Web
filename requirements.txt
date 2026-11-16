@@ -161,7 +161,6 @@ wikipedia
 youtube-search-python
 youtube_dl
 youtube-search
-yt-dlp
 yt-dlp[default]
 deno
 gallery-dl
